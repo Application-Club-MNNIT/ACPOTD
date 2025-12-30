@@ -39,7 +39,7 @@ function loadLastFetchedData() {
       potdNumber: parsedData.potdNumber || 1,
     };
   } catch (error) {
-    return { index: 1, potdNumber: 1}; // Default values
+    return { index: 1, potdNumber: 1 }; // Default values
   }
 }
 
@@ -47,13 +47,13 @@ function loadLastFetchedData() {
 function saveLastFetchedData(index, potdNumber) {
   fs.writeFileSync(
     LAST_FETCHED_FILE,
-    JSON.stringify({ index, potdNumber}),
+    JSON.stringify({ index, potdNumber }),
     "utf-8"
   );
 }
 
 async function getQuestions() {
-  const { index, potdNumber} = loadLastFetchedData();
+  const { index, potdNumber } = loadLastFetchedData();
 
   try {
     const response = await sheets.spreadsheets.values.get({
@@ -61,20 +61,25 @@ async function getQuestions() {
       range: RANGE,
     });
     const rows = response.data.values;
-    
+
     // first row is the number of questions
     if (!rows || rows.length <= 1) {
       console.log("No data found.");
       return { questions: [], potdNumber };
     }
-   
+
     // first row has the count of questions to send
     const q_count = parseInt(rows.slice(0, 1)[0][1]);
 
     // index tell the row number in the sheet starting from which the questions will be fetched
-    if (rows.slice(index - 1, index)[0][0].toLowerCase().trim() === "holiday") {
+    if (
+      rows
+        .slice(index - 1, index)[0][0]
+        .toLowerCase()
+        .trim() === "holiday"
+    ) {
       saveLastFetchedData(index + 1, potdNumber);
-      return {questions : [], potdNumber : -1};
+      return { questions: [], potdNumber: -1 };
     }
 
     const nextQuestions = rows.slice(index - 1, index - 1 + q_count);
@@ -88,51 +93,56 @@ async function getQuestions() {
 }
 
 async function sendProblemOfTheDay() {
-    const { questions, potdNumber } = await getQuestions();
-    if(potdNumber === -1) {
-        const message = `We are not posting any POTD today!
+  const { questions, potdNumber } = await getQuestions();
+  if (potdNumber === -1) {
+    const message = `We are not posting any POTD today!
 Prepare well for OPC and revise previous POTDs!!!
 Best of Luck 🤞🤞`;
-        try {
-            const channel = await client.channels.fetch(POTD_CHANNEL_ID);
-            const msg = await channel.send(message);
-        } catch (error) {
-            console.error("Error sending message:", error);
-        }
-        return;
+    try {
+      const channel = await client.channels.fetch(POTD_CHANNEL_ID);
+      const msg = await channel.send(message);
+    } catch (error) {
+      console.error("Error sending message:", error);
     }
+    return;
+  }
 
-    if (questions.length === 0) return;
+  if (questions.length === 0) return;
 
   const today = new Date().toLocaleDateString("en-GB");
   let questionString = "";
   let reactionString = "";
 
-  for(let i = 1; i <= questions.length; i++) {
-	questionString += `🔸 **Task ${i}:** [${questions[i-1][0]}](<${questions[i-1][1]}>)\n`;
+  for (let i = 1; i <= questions.length; i++) {
+    questionString += `🔸 **Task ${i}:** [${questions[i - 1][0]}](<${
+      questions[i - 1][1]
+    }>)\n`;
   }
 
   const reactlist = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
 
-  for(let i = 1; i <= questions.length; i++) {
-	reactionString += `${reactlist[i-1]} if you completed Task ${i}\n`;
+  for (let i = 1; i <= questions.length; i++) {
+    reactionString += `${reactlist[i - 1]} if you completed Task ${i}\n`;
   }
 
-  const message = `
+  const message =
+    `
 🎯 **Problem of the Day (POTD #${potdNumber})**
 📆 **Date: ${today}**  
 <@&1422660941626998784> <@&1441479212182671591>
 
-`   + questionString +
-`
+` +
+    questionString +
+    `
 React with:
-`   + reactionString;
+` +
+    reactionString;
 
   try {
     const channel = await client.channels.fetch(POTD_CHANNEL_ID);
     const msg = await channel.send(message);
-    for(let i = 1; i <= questions.length; i++) {
-        await msg.react(reactlist[i-1]);
+    for (let i = 1; i <= questions.length; i++) {
+      await msg.react(reactlist[i - 1]);
     }
   } catch (error) {
     console.error("Error sending message:", error);
@@ -142,75 +152,69 @@ React with:
 const reactionCount = new Map();
 
 async function getLeaderboard() {
-    const channel = await client.channels.fetch(POTD_CHANNEL_ID);
-    const messages = await channel.messages.fetch({ limit: 50 });
-    for (const message of messages.values()) {
-        for (const reaction of message.reactions.cache.values()) {
-            const users = await reaction.users.fetch();
+  const channel = await client.channels.fetch(POTD_CHANNEL_ID);
+  const messages = await channel.messages.fetch({ limit: 50 });
+  for (const message of messages.values()) {
+    for (const reaction of message.reactions.cache.values()) {
+      const users = await reaction.users.fetch();
 
-            for (const user of users.values()) {
-                if (user.bot) continue;
-                reactionCount.set(
-                    user.id,
-                    (reactionCount.get(user.id) || 0) + 1
-                );
-            }
-        }
+      for (const user of users.values()) {
+        if (user.bot) continue;
+        reactionCount.set(user.id, (reactionCount.get(user.id) || 0) + 1);
+      }
     }
-	const sorted = [...reactionCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 50);
-	return sorted;
+  }
+  const sorted = [...reactionCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 50);
+  return sorted;
 }
 
-async function sendLeaderboard(){
-	const leaderboard = await getLeaderboard();
-	let message = "# Leaderboard\n";
-	for (let i = 0; i < leaderboard.length; i++) {
-		message += `<@${leaderboard[i][0]}> : ${leaderboard[i][1]}\n`;
-	}
-	try{
-		const channel = await client.channels.fetch(LEADER_CHANNEL_ID);
-		await channel.send(message);
-	} catch(error){
-		console.log("Error sending leaderboard.");
-	}
+async function sendLeaderboard() {
+  const leaderboard = await getLeaderboard();
+  let message = "# Leaderboard\n";
+  for (let i = 0; i < leaderboard.length; i++) {
+    message += `<@${leaderboard[i][0]}> : ${leaderboard[i][1]}\n`;
+  }
+  try {
+    const channel = await client.channels.fetch(LEADER_CHANNEL_ID);
+    await channel.send(message);
+  } catch (error) {
+    console.log("Error sending leaderboard.");
+  }
 }
 
 async function fetchMessageList(maxMessages = 200) {
-    let fetched = [];
-    let lastId;
-	try{
-		const channel = await client.channels.fetch(POTD_CHANNEL_ID);
+  let fetched = [];
+  let lastId;
+  try {
+    const channel = await client.channels.fetch(POTD_CHANNEL_ID);
     while (fetched.length < maxMessages) {
-        const messages = await channel.messages.fetch({
-            limit: 100,
-            before: lastId
-        });
+      const messages = await channel.messages.fetch({
+        limit: 100,
+        before: lastId,
+      });
 
-        if (messages.size === 0) break;
+      if (messages.size === 0) break;
 
-        for (const msg of messages.values()) {
-                fetched.push(msg.id);
-        }
+      for (const msg of messages.values()) {
+        fetched.push(msg.id);
+      }
 
-        lastId = messages.last().id;
+      lastId = messages.last().id;
     }
-	} catch (error) {
-		console.log("Error fetching message IDs: ", error);
-		return [];
-	}
+  } catch (error) {
+    console.log("Error fetching message IDs: ", error);
+    return [];
+  }
 
-    return fetched.slice(0, maxMessages);
+  return fetched.slice(0, maxMessages);
 }
 
 async function createMessageStorage() {
-	const messageList = await fetchMessageList();
-	fs.writeFileSync(
-		MESSAGE_STORAGE,
-		JSON.stringify({messageList}),
-		"utf-8"
-	);
+  const messageList = await fetchMessageList();
+  fs.writeFileSync(MESSAGE_STORAGE, JSON.stringify({ messageList }), "utf-8");
 }
-
 
 // Run the cron job at midnight daily
 cron.schedule(
@@ -234,22 +238,25 @@ process.stdin.resume();
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", async (data) => {
   const cmd = data.toString().trim();
-  if (cmd === "leaderboard"){
-	  console.log("Manual trigger leaderboard");
-	  await sendLeaderboard();
+  if (cmd === "leaderboard") {
+    console.log("Manual trigger leaderboard");
+    await sendLeaderboard();
   }
   if (cmd === "make-msgfile") {
-	  console.log("Fetching Data......");
-	  await createMessageStorage();
-	  console.log("Message List fetched successfully and saved to ",MESSAGE_STORAGE);
+    console.log("Fetching Data......");
+    await createMessageStorage();
+    console.log(
+      "Message List fetched successfully and saved to ",
+      MESSAGE_STORAGE
+    );
   }
   if (cmd === "run-potd") {
     console.log("Manual trigger via stdin");
     await sendProblemOfTheDay();
 
-// For editing an already sent message
+    // For editing an already sent message
 
-/*const channel = await client.channels.fetch(CHANNEL_ID);
+    /*const channel = await client.channels.fetch(CHANNEL_ID);
 const message = await channel.messages.fetch(MESSAGE_ID);
 
 await message.edit(`🎯 **Problem of the Day (POTD #26)**
