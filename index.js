@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import cron from "node-cron";
 import dotenv from "dotenv";
 import fs from "fs";
+import { exit } from "process";
 
 dotenv.config();
 
@@ -22,12 +23,61 @@ const auth = new google.auth.GoogleAuth({
 const sheets = google.sheets({ version: "v4", auth });
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID; // Replace with your sheet ID
-const RANGE = "ACPOTD!A:B"; // Adjust the range if needed
-const POTD_CHANNEL_ID = "1441540640352768101"; // Replace with the POTD Discord channel ID
-const TEST_CHANNEL_ID = "1444739857913217034"; // leads-2024-private
-const LEADER_CHANNEL_ID = "1455208815552237689";
+const QUESTIONS_RANGE = "ACPOTD!A10:B"; // Adjust the range if needed
+const SETTINGS_RANGE = "ACPOTD!A2:B8";
 const LAST_FETCHED_FILE = "lastFetchedIndex.json"; // File to store the index of the last fetched question
 const MESSAGE_STORAGE = "potdMessageIds.json"; // File to store the IDs of all the messages sent in POTD channel
+
+/**
+ * Function that fetches bot settings from the spreadsheet
+ * 
+ * @returns An object containing the bot setting in this order:
+ * POTD_CHANNEL_ID : Channel Id in which potds will be send
+ * TEST_CHANNEL_ID : Channel Id in which messages will be send if DEBUG is TRUE
+ * DEBUG : If TRUE, messages are send in TEST_CHANNEL
+ * LEADER_CHANNEL_ID : Channel Id in which leaderboard will be send
+ * LEADERBOARD : Send leaderbaord daily if set to TRUE otherwise not if set to FALSE
+ * POTD_ROLE_ID_1 : Role 1 to tag in potd message
+ * POTD_ROLE_ID_2 : Role 2 to tag in potd message
+ */
+async function getSettings() {
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: SETTINGS_RANGE,
+    });
+    const rows = response.data.values;
+    if (!rows || rows.length < 7) {
+      console.error("Missing Settings!");
+      exit();
+    }
+
+    // console.log(rows);
+    
+    return {
+      POTD_CHANNEL_ID : rows[0][1],
+      TEST_CHANNEL_ID : rows[1][1],
+      DEBUG : rows[2][1],
+      LEADER_CHANNEL_ID : rows[3][1],
+      LEADERBOARD : rows[4][1],
+      POTD_ROLE_ID_1 : rows[5][1],
+      POTD_ROLE_ID_2 : rows[6][1],
+    };
+  } catch (error) {
+    console.error("Something went wrong in fetching settings.");
+    exit();
+  }
+}
+
+const {
+  POTD_CHANNEL_ID,
+  TEST_CHANNEL_ID,
+  DEBUG,
+  LEADER_CHANNEL_ID,
+  LEADERBOARD,
+  POTD_ROLE_ID_1,
+  POTD_ROLE_ID_2,
+} = await getSettings();
 
 // Load the last fetched index and POTD number from the file (or default to 0 and 1)
 function loadLastFetchedData() {
@@ -129,7 +179,7 @@ Best of Luck 🤞🤞`;
     `
 🎯 **Problem of the Day (POTD #${potdNumber})**
 📆 **Date: ${today}**  
-<@&1422660941626998784> <@&1441479212182671591>
+<@&${POTD_ROLE_ID_1}> <@&${POTD_ROLE_ID_2}>
 
 ` +
     questionString +
