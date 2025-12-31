@@ -28,6 +28,14 @@ const SETTINGS_RANGE = "ACPOTD!A2:B8";
 const LAST_FETCHED_FILE = "lastFetchedIndex.json"; // File to store the index of the last fetched question
 const MESSAGE_STORAGE = "potdMessageIds.json"; // File to store the IDs of all the messages sent in POTD channel
 
+let POTD_CHANNEL_ID = "";
+let TEST_CHANNEL_ID = "";
+let DEBUG = "FALSE";
+let LEADER_CHANNEL_ID = "";
+let LEADERBOARD = "FALSE";
+let POTD_ROLE_ID_1 = "";
+let POTD_ROLE_ID_2 = "";
+
 /**
  * Function that fetches bot settings from the spreadsheet
  * 
@@ -69,15 +77,17 @@ async function getSettings() {
   }
 }
 
-const {
-  POTD_CHANNEL_ID,
-  TEST_CHANNEL_ID,
-  DEBUG,
-  LEADER_CHANNEL_ID,
-  LEADERBOARD,
-  POTD_ROLE_ID_1,
-  POTD_ROLE_ID_2,
-} = await getSettings();
+async function initBot(){
+  ({
+    POTD_CHANNEL_ID,
+    TEST_CHANNEL_ID,
+    DEBUG,
+    LEADER_CHANNEL_ID,
+    LEADERBOARD,
+    POTD_ROLE_ID_1,
+    POTD_ROLE_ID_2
+  } = await getSettings());
+}
 
 // Load the last fetched index and POTD number from the file (or default to 0 and 1)
 function loadLastFetchedData() {
@@ -108,7 +118,7 @@ async function getQuestions() {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: RANGE,
+      range: QUESTIONS_RANGE,
     });
     const rows = response.data.values;
 
@@ -119,7 +129,7 @@ async function getQuestions() {
     }
 
     // first row has the count of questions to send
-    const q_count = parseInt(rows.slice(0, 1)[0][1]);
+    const q_count = 2;
 
     // index tell the row number in the sheet starting from which the questions will be fetched
     if (
@@ -144,13 +154,14 @@ async function getQuestions() {
 
 async function sendProblemOfTheDay() {
   const { questions, potdNumber } = await getQuestions();
+  let CHANNEL_ID = DEBUG === "TRUE" ? TEST_CHANNEL_ID : POTD_CHANNEL_ID;
   if (potdNumber === -1) {
     const message = `We are not posting any POTD today!
 Prepare well for OPC and revise previous POTDs!!!
 Best of Luck 🤞🤞`;
     try {
-      const channel = await client.channels.fetch(POTD_CHANNEL_ID);
-      const msg = await channel.send(message);
+      const channel = await client.channels.fetch(CHANNEL_ID);
+      // const msg = await channel.send(message);
     } catch (error) {
       console.error("Error sending message:", error);
     }
@@ -189,7 +200,7 @@ React with:
     reactionString;
 
   try {
-    const channel = await client.channels.fetch(POTD_CHANNEL_ID);
+    const channel = await client.channels.fetch(CHANNEL_ID);
     const msg = await channel.send(message);
     for (let i = 1; i <= questions.length; i++) {
       await msg.react(reactlist[i - 1]);
@@ -222,12 +233,13 @@ async function getLeaderboard() {
 
 async function sendLeaderboard() {
   const leaderboard = await getLeaderboard();
+  let CHANNEL_ID = DEBUG === "TRUE" ? TEST_CHANNEL_ID : LEADER_CHANNEL_ID;
   let message = "# Leaderboard\n";
   for (let i = 0; i < leaderboard.length; i++) {
     message += `<@${leaderboard[i][0]}> : ${leaderboard[i][1]}\n`;
   }
   try {
-    const channel = await client.channels.fetch(LEADER_CHANNEL_ID);
+    const channel = await client.channels.fetch(CHANNEL_ID);
     await channel.send(message);
   } catch (error) {
     console.log("Error sending leaderboard.");
@@ -271,6 +283,7 @@ cron.schedule(
   "0 0 * * *",
   async () => {
     console.log("Cron job triggered at:", new Date().toLocaleString()); // Logs the time when the cron job runs
+    await initBot();
     await sendProblemOfTheDay();
   },
   {
@@ -290,6 +303,7 @@ process.stdin.on("data", async (data) => {
   const cmd = data.toString().trim();
   if (cmd === "leaderboard") {
     console.log("Manual trigger leaderboard");
+    await initBot();
     await sendLeaderboard();
   }
   if (cmd === "make-msgfile") {
@@ -302,6 +316,7 @@ process.stdin.on("data", async (data) => {
   }
   if (cmd === "run-potd") {
     console.log("Manual trigger via stdin");
+    await initBot();
     await sendProblemOfTheDay();
 
     // For editing an already sent message
