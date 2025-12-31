@@ -472,6 +472,7 @@ cron.schedule(
     console.log("Cron job triggered at:", new Date().toLocaleString());
     await updateSettings();
     await sendProblemOfTheDay();
+    await sendLeaderboard();
   },
   {
     timezone: "Asia/Kolkata",
