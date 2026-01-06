@@ -115,7 +115,7 @@ function saveLastFetchedData(index, potdNumber) {
 }
 
 async function getQuestions() {
-  const { index, potdNumber } = loadLastFetchedData();
+  let { index, potdNumber } = loadLastFetchedData();
 
   try {
     const response = await sheets.spreadsheets.values.get({
@@ -129,20 +129,22 @@ async function getQuestions() {
       return { questions: [], potdNumber };
     }
 
-    const q_count = 2;
-
     if (
       rows
         .slice(index, index + 1)[0][0]
         .toLowerCase()
         .trim() === "holiday"
     ) {
-      saveLastFetchedData(index + 1, potdNumber);
+      saveLastFetchedData(index + 2, potdNumber);
       return { questions: [], potdNumber: -1 };
     }
 
-    const nextQuestions = rows.slice(index, index + q_count);
-    saveLastFetchedData(index + q_count, potdNumber + 1); // Increment by number of questions
+    let nextQuestions = [];
+    while (rows[index].length != 0) {
+      nextQuestions.push(rows[index]);
+      index++;
+    }
+    saveLastFetchedData(index + 1, potdNumber + 1);
 
     return { questions: nextQuestions, potdNumber };
   } catch (error) {
