@@ -422,10 +422,7 @@ async function sendLeaderboard() {
         prevCount = count;
       }
 
-      await channel.send({
-        content: block,
-        allowedMentions: { users: [] }, // no user ping spam
-      });
+      await channel.send(block);
     }
 
   } catch (error) {
