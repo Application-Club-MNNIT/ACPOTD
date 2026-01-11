@@ -140,7 +140,7 @@ async function getQuestions() {
     }
 
     let nextQuestions = [];
-    while (rows[index].length != 0) {
+    while (rows[index] && rows[index].length != 0) {
       nextQuestions.push(rows[index]);
       index++;
     }
@@ -504,6 +504,18 @@ process.stdin.on("data", async (data) => {
       "Message List fetched successfully and saved to ",
       MESSAGE_STORAGE
     );
+  }
+  if (cmd == "fetch-test") {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: QUESTIONS_RANGE,
+    });
+    const rows = response.data.values;
+    console.log(rows);
+    } catch (error) {
+      console.error("Error: ", error);
+    }
   }
   if (cmd === "run-potd") {
     console.log("Manual trigger via stdin");
