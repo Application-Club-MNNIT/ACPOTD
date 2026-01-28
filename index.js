@@ -160,7 +160,7 @@ async function sendProblemOfTheDay() {
 
   if (potdNumber === -1) {
     const message = `We are not posting any POTD today!
-Prepare well for OPC and revise previous POTDs!!!
+Prepare well for ACPC and revise previous POTDs!!!
 Best of Luck 🤞🤞`;
 
     try {
