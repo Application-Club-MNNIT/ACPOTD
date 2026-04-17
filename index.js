@@ -485,7 +485,7 @@ client.once("ready", () => {
 await client.login(process.env.TOKEN);
 
 await updateSettings();
-// await createLeaderboard();
+await createLeaderboard();
 
 /* ----------------- Manual Trigger Commands ------------------- */
 process.stdin.resume();
