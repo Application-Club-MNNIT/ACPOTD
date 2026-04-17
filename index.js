@@ -129,14 +129,13 @@ async function getQuestions() {
       return { questions: [], potdNumber };
     }
 
-    if (
-      rows
-        .slice(index, index + 1)[0][0]
-        .toLowerCase()
-        .trim() === "holiday"
-    ) {
+    const firstCell = rows[index]?.[0]?.trim() || "";
+    const secondCell = rows[index]?.[1]?.trim() || "";
+
+    // If column B is empty, send column A directly as a plain text custom message.
+    if (!secondCell && firstCell) {
       saveLastFetchedData(index + 2, potdNumber);
-      return { questions: [], potdNumber: -1 };
+      return { questions: [], potdNumber: -1, customMessage: firstCell };
     }
 
     let nextQuestions = [];
@@ -146,23 +145,24 @@ async function getQuestions() {
     }
     saveLastFetchedData(index + 1, potdNumber + 1);
 
-    return { questions: nextQuestions, potdNumber };
+    return { questions: nextQuestions, potdNumber, customMessage: "" };
   } catch (error) {
     console.error("Error fetching data from Google Sheets:", error);
-    return { questions: [], potdNumber };
+    return { questions: [], potdNumber, customMessage: "" };
   }
 }
 
 async function sendProblemOfTheDay() {
-  const { questions, potdNumber } = await getQuestions();
+  const { questions, potdNumber, customMessage } = await getQuestions();
 
   let CHANNEL_ID = DEBUG === "TRUE" ? TEST_CHANNEL_ID : POTD_CHANNEL_ID;
 
-  if (potdNumber === -1) {
-    const message = `We are not posting any POTD today!
-Prepare well for ACPC and revise previous POTDs!!!
-Best of Luck 🤞🤞`;
+  if (potdNumber === -1 && customMessage) {
+    let message = 
+`
+<@&${POTD_ROLE_ID_1}> <@&${POTD_ROLE_ID_2}>
 
+` + customMessage
     try {
       const channel = await client.channels.fetch(CHANNEL_ID);
       const msg = await channel.send(message);
@@ -485,7 +485,7 @@ client.once("ready", () => {
 await client.login(process.env.TOKEN);
 
 await updateSettings();
-await createLeaderboard();
+// await createLeaderboard();
 
 /* ----------------- Manual Trigger Commands ------------------- */
 process.stdin.resume();
@@ -521,21 +521,24 @@ process.stdin.on("data", async (data) => {
     console.log("Manual trigger via stdin");
     await updateSettings();
     await sendProblemOfTheDay();
+  }
 
-    // For editing an already sent message
-
-    /*const channel = await client.channels.fetch(CHANNEL_ID);
+  if (cmd === "edit-msg") {
+    await updateSettings();
+    let MESSAGE_ID = "put_message_id_here"
+        const channel = await client.channels.fetch(POTD_CHANNEL_ID);
 const message = await channel.messages.fetch(MESSAGE_ID);
 
 await message.edit(`🎯 **Problem of the Day (POTD #26)**
 📆 **Date: 28/12/2025**  
-<@&1422660941626998784> <@&1441479212182671591>
+<@&${POTD_ROLE_ID_1}> <@&${POTD_ROLE_ID_2}>
 
 🔸 **Task 1:** [Circular Queue](<https://leetcode.com/problems/design-circular-queue/description/>)  
 🔸 **Task 2:** [First Non-Repeating Character in a Stream](<https://practice.geeksforgeeks.org/problems/first-non-repeating-character-in-a-stream/1>)  
 
 React with:
 1️⃣ if you completed Task 1  
-2️⃣ if you completed Task 2`);*/
+2️⃣ if you completed Task 2`);
   }
+
 });
